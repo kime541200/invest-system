@@ -111,6 +111,30 @@ def get_top_news(limit=10):
     return [dict(r) for r in rows]
 
 
+def get_institutional_summary():
+    """取得法人最新買賣超摘要（最近交易日）"""
+    conn = get_conn()
+    try:
+        # 找最近的交易日
+        latest = conn.execute(
+            "SELECT MAX(date) FROM tw_institutional"
+        ).fetchone()[0]
+        if not latest:
+            conn.close()
+            return []
+
+        rows = conn.execute("""
+            SELECT symbol, foreign_net, trust_net, dealer_net, total_net
+            FROM tw_institutional WHERE date = ?
+            ORDER BY ABS(total_net) DESC LIMIT 10
+        """, (latest,)).fetchall()
+        conn.close()
+        return [dict(r) | {'date': latest} for r in rows]
+    except Exception:
+        conn.close()
+        return []
+
+
 def get_best_strategies():
     """取得各市場最佳策略"""
     conn = get_conn()
@@ -187,6 +211,18 @@ def generate_report():
             report.append(f"{i}. {s_emoji}[{n['score']}] {n['title'][:40]}")
             if n.get('reason'):
                 report.append(f"   → {n['reason'][:50]}")
+
+    # 法人動向
+    inst = get_institutional_summary()
+    if inst:
+        report.append(f"\n🏦 法人動向 ({inst[0]['date']})")
+        report.append("─" * 35)
+        for r in inst[:6]:
+            net = r['total_net']
+            arrow = "🔴" if net > 0 else "🟢" if net < 0 else "⚪"
+            fn = f"外{r['foreign_net']:+,}" if r['foreign_net'] else ""
+            tn = f"投{r['trust_net']:+,}" if r['trust_net'] else ""
+            report.append(f"{arrow} {r['symbol']}: {net:+,} ({fn} {tn})")
 
     # 最佳策略
     strategies = get_best_strategies()

@@ -169,7 +169,8 @@ NAV = """<nav>
 <a href="/trading">看盤</a>
 <a href="/backtests">回測結果</a>
 <a href="/intelligence">市場情報</a>
-<a href="/messages">群組監聽</a>
+<a href="/chipdata">籌碼分析</a>
+<a href="/messages">群組監聯</a>
 <select onchange="if(this.value)location.href='/market/'+this.value" style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:4px 8px;font-size:13px;cursor:pointer;min-height:36px">
 <option value="">📊 行情查詢</option>
 {symbol_options}
@@ -658,6 +659,167 @@ def messages():
     return page("群組監聽", stats_html + filter_html + table_html + script)
 
 
+@app.route("/api/chipdata/<symbol>")
+def api_chipdata(symbol):
+    """個股籌碼面資料：法人/融資券/PER/月營收"""
+    conn = get_conn()
+    days = int(os.environ.get("CHIP_DAYS", 60))
+    inst = conn.execute(
+        "SELECT * FROM tw_institutional WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        (symbol, days)).fetchall()
+    margin = conn.execute(
+        "SELECT * FROM tw_margin WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        (symbol, days)).fetchall()
+    per = conn.execute(
+        "SELECT * FROM tw_per WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        (symbol, days)).fetchall()
+    revenue = conn.execute(
+        "SELECT * FROM tw_revenue WHERE symbol=? ORDER BY date DESC LIMIT 24",
+        (symbol,)).fetchall()
+    conn.close()
+    return jsonify({
+        "symbol": symbol,
+        "institutional": rows_to_dicts(inst),
+        "margin": rows_to_dicts(margin),
+        "per": rows_to_dicts(per),
+        "revenue": rows_to_dicts(revenue),
+    })
+
+
+@app.route("/api/chipdata")
+def api_chipdata_list():
+    """有籌碼資料的股票清單"""
+    conn = get_conn()
+    rows = conn.execute("""
+        SELECT symbol, COUNT(*) as days, MIN(date) as from_date, MAX(date) as to_date
+        FROM tw_institutional GROUP BY symbol ORDER BY symbol
+    """).fetchall()
+    conn.close()
+    return jsonify(rows_to_dicts(rows))
+
+
+@app.route("/chipdata")
+@app.route("/chipdata/<symbol>")
+def chipdata_page(symbol=None):
+    conn = get_conn()
+    stocks = conn.execute(
+        "SELECT DISTINCT symbol FROM tw_institutional ORDER BY symbol"
+    ).fetchall()
+    stock_list = [r['symbol'] for r in stocks]
+
+    if not symbol and stock_list:
+        symbol = stock_list[0]
+
+    # 取最近 30 天法人
+    inst = []
+    margin_data = []
+    per_data = []
+    rev_data = []
+    if symbol:
+        inst = conn.execute(
+            "SELECT * FROM tw_institutional WHERE symbol=? ORDER BY date DESC LIMIT 30",
+            (symbol,)).fetchall()
+        margin_data = conn.execute(
+            "SELECT * FROM tw_margin WHERE symbol=? ORDER BY date DESC LIMIT 30",
+            (symbol,)).fetchall()
+        per_data = conn.execute(
+            "SELECT * FROM tw_per WHERE symbol=? ORDER BY date DESC LIMIT 5",
+            (symbol,)).fetchall()
+        rev_data = conn.execute(
+            "SELECT * FROM tw_revenue WHERE symbol=? ORDER BY date DESC LIMIT 12",
+            (symbol,)).fetchall()
+    conn.close()
+
+    # 股票選擇
+    stock_options = "".join(
+        f'<option value="{s}" {"selected" if s == symbol else ""}>{s}</option>'
+        for s in stock_list
+    )
+    selector = f'''<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:15px">📊 選擇股票</span>
+        <select onchange="location.href='/chipdata/'+this.value"
+                style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:6px 12px;font-size:14px;cursor:pointer">
+            {stock_options}
+        </select>
+        <span style="color:#64748b;font-size:12px">{len(stock_list)} 支股票有籌碼資料</span>
+    </div>'''
+
+    # PER/PBR 卡片
+    per_html = ""
+    if per_data:
+        p = per_data[0]
+        per_val = f"{p['per']:.1f}" if p['per'] else "N/A"
+        pbr_val = f"{p['pbr']:.2f}" if p['pbr'] else "N/A"
+        dy_val = f"{p['dividend_yield']:.2f}%" if p['dividend_yield'] else "N/A"
+        per_html = f'''<div class="card" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
+            <div><div style="color:#94a3b8;font-size:11px">本益比 PER</div><div style="font-size:1.5em;font-weight:700;color:#38bdf8">{per_val}</div></div>
+            <div><div style="color:#94a3b8;font-size:11px">淨值比 PBR</div><div style="font-size:1.5em;font-weight:700;color:#a78bfa">{pbr_val}</div></div>
+            <div><div style="color:#94a3b8;font-size:11px">殖利率</div><div style="font-size:1.5em;font-weight:700;color:#4ade80">{dy_val}</div></div>
+        </div>'''
+
+    # 法人買賣超表
+    inst_html = ""
+    if inst:
+        rows_str = ""
+        for r in inst[:20]:
+            fn = r['foreign_net']
+            tn = r['trust_net']
+            dn = r['dealer_net']
+            total = r['total_net']
+            fc = "pos" if fn > 0 else "neg" if fn < 0 else ""
+            tc = "pos" if tn > 0 else "neg" if tn < 0 else ""
+            dc = "pos" if dn > 0 else "neg" if dn < 0 else ""
+            ttc = "pos" if total > 0 else "neg" if total < 0 else ""
+            rows_str += f'''<tr><td>{r['date'][5:]}</td>
+                <td class="{fc}">{fn:+,}</td>
+                <td class="{tc}">{tn:+,}</td>
+                <td class="{dc}">{dn:+,}</td>
+                <td class="{ttc}" style="font-weight:700">{total:+,}</td></tr>'''
+        inst_html = f'''<div class="card"><h2>三大法人買賣超</h2>
+            <table><tr><th>日期</th><th>外資</th><th>投信</th><th>自營商</th><th>合計</th></tr>
+            {rows_str}</table></div>'''
+
+    # 融資融券表
+    margin_html = ""
+    if margin_data:
+        rows_str = ""
+        for r in margin_data[:20]:
+            rows_str += f'''<tr><td>{r['date'][5:]}</td>
+                <td>{r['margin_buy']:,}</td><td>{r['margin_sell']:,}</td>
+                <td style="color:#38bdf8">{r['margin_balance']:,}</td>
+                <td>{r['short_buy']:,}</td><td>{r['short_sell']:,}</td>
+                <td style="color:#f59e0b">{r['short_balance']:,}</td></tr>'''
+        margin_html = f'''<div class="card"><h2>融資融券</h2>
+            <table><tr><th>日期</th><th>融資買</th><th>融資賣</th><th>融資餘額</th>
+            <th>融券買</th><th>融券賣</th><th>融券餘額</th></tr>
+            {rows_str}</table></div>'''
+
+    # 月營收表
+    rev_html = ""
+    if rev_data:
+        rows_str = ""
+        for r in rev_data:
+            yoy = r['revenue_yoy'] or 0
+            mom = r['revenue_mom'] or 0
+            yc = "pos" if yoy > 0 else "neg" if yoy < 0 else ""
+            mc = "pos" if mom > 0 else "neg" if mom < 0 else ""
+            rev_m = r['revenue'] / 100000000 if r['revenue'] else 0
+            rows_str += f'''<tr><td>{r['date'][:7]}</td>
+                <td>{rev_m:.2f} 億</td>
+                <td class="{yc}">{yoy:+.1f}%</td>
+                <td class="{mc}">{mom:+.1f}%</td></tr>'''
+        rev_html = f'''<div class="card"><h2>月營收</h2>
+            <table><tr><th>月份</th><th>營收</th><th>年增率</th><th>月增率</th></tr>
+            {rows_str}</table></div>'''
+
+    content = selector + per_html + inst_html + margin_html + rev_html
+
+    if not symbol:
+        content = '<div class="empty">尚無籌碼資料，請先執行 FinMind 下載</div>'
+
+    return page(f"籌碼分析 — {symbol or ''}", content)
+
+
 @app.route("/api/manifest")
 def api_manifest():
     """服務清單 — 供 SBS Dashboard 動態偵測"""
@@ -672,6 +834,7 @@ def api_manifest():
             {"path": "/intelligence", "name": "市場情報", "icon": "📰"},
             {"path": "/backtests", "name": "回測結果", "icon": "🏆"},
             {"path": "/messages", "name": "群組監聽", "icon": "📨"},
+            {"path": "/chipdata", "name": "籌碼分析", "icon": "🏦"},
         ],
         "apis": [
             "/api/backtests", "/api/market/<symbol>", "/api/trades",

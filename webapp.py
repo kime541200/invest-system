@@ -556,7 +556,15 @@ def intelligence():
             sl = sent_label.get(s, s)
             sc = r['score'] or 0
             reason = r['reason'] or ''
-            pub = (r['published_at'] or '')[:19]
+            raw_pub = r['published_at'] or ''
+            # 嘗試解析各種日期格式為 YYYY-MM-DD
+            pub = raw_pub[:10]
+            try:
+                from email.utils import parsedate_to_datetime
+                pub = parsedate_to_datetime(raw_pub).strftime('%Y-%m-%d')
+            except Exception:
+                if 'T' in raw_pub:
+                    pub = raw_pub[:10]
             title_safe = (r['title'] or '').replace('<', '&lt;').replace('>', '&gt;')
             url = r['url'] or '#'
             trs += f"""<tr>

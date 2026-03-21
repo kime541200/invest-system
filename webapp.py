@@ -170,16 +170,37 @@ NAV = """<nav>
 <a href="/backtests">回測結果</a>
 <a href="/intelligence">市場情報</a>
 <a href="/messages">群組監聽</a>
-{symbols}
+<select onchange="if(this.value)location.href='/market/'+this.value" style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:4px 8px;font-size:13px;cursor:pointer;min-height:36px">
+<option value="">📊 行情查詢</option>
+{symbol_options}
+</select>
 </nav>"""
 
 
 def make_nav(active=""):
     conn = get_conn()
-    symbols = conn.execute("SELECT DISTINCT symbol FROM market_data ORDER BY symbol").fetchall()
+    symbols = conn.execute("""
+        SELECT symbol, source, COUNT(*) as cnt FROM market_data
+        GROUP BY symbol ORDER BY source, symbol
+    """).fetchall()
     conn.close()
-    links = "".join(f'<a href="/market/{r["symbol"]}">{r["symbol"]}</a>' for r in symbols)
-    return NAV.format(symbols=links)
+
+    categories = {}
+    source_names = {'twse': '🇹🇼 台股', 'taifex': '📈 期貨', 'yfinance': '🌍 國際', 'tpex_otc': '🏢 上櫃', 'tpex_emerging': '🌱 興櫃'}
+    for r in symbols:
+        cat = source_names.get(r['source'], '其他')
+        if cat not in categories:
+            categories[cat] = []
+        categories[cat].append(r['symbol'])
+
+    options = ""
+    for cat, syms in categories.items():
+        options += f'<optgroup label="{cat}">'
+        for s in syms:
+            options += f'<option value="{s}">{s}</option>'
+        options += '</optgroup>'
+
+    return NAV.format(symbol_options=options)
 
 
 def page(title, body):

@@ -179,13 +179,19 @@ async def cmd_listen(target: str):
 
     @client.on(events.NewMessage)
     async def handler(event):
-        # 取得群組資訊
         chat = await event.get_chat()
-        if not isinstance(chat, (Channel, Chat)):
-            return  # 忽略私聊
-
         chat_id = event.chat_id
-        if not listen_all and chat_id not in target_ids:
+
+        # 判斷訊息類型
+        is_group = isinstance(chat, (Channel, Chat))
+        is_private = isinstance(chat, User)
+
+        if is_group:
+            if not listen_all and chat_id not in target_ids:
+                return
+        elif is_private:
+            pass  # 個人訊息全部收
+        else:
             return
 
         # 取得發送者
@@ -198,7 +204,10 @@ async def cmd_listen(target: str):
         else:
             sender_name = getattr(sender, "title", None) or str(sender_id)
 
-        chat_name = group_names.get(chat_id) or getattr(chat, "title", str(chat_id))
+        if is_private:
+            chat_name = f"私訊:{sender_name}"
+        else:
+            chat_name = group_names.get(chat_id) or getattr(chat, "title", str(chat_id))
         text = event.raw_text or ""
         ts = datetime.now(timezone.utc).isoformat()
 

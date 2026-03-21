@@ -66,13 +66,33 @@ def save_message(group_id, group_name, sender_id, sender_name, message_text, ts)
 
 # ── AI 分析（預留介面）────────────────────────────────────
 
-def analyze_message(text: str) -> dict | None:
+def analyze_message(text: str, group_name: str = '', msg_id: int = 0) -> dict | None:
     """
-    預留 AI 分析介面，之後接 intelligence.py。
-    回傳分析結果 dict 或 None。
-    目前不做任何處理，僅存儲。
+    即時 AI 分析 TG 訊息。
+    財經相關群組的訊息自動導入 news_intelligence 並分析。
     """
-    # TODO: 接入 intelligence.py 做訊息分析
+    # 只分析有意義的訊息（>20字，來自財經相關群組）
+    finance_keywords = ['財經', '投資', '郭哲榮', '慢报', '捕手']
+    is_finance = any(k in group_name for k in finance_keywords)
+
+    if not is_finance or len(text) < 20:
+        return None
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        url = f"tg://{msg_id}"
+        exists = conn.execute("SELECT 1 FROM news_intelligence WHERE url=?", (url,)).fetchone()
+        if not exists:
+            conn.execute(
+                "INSERT OR IGNORE INTO news_intelligence (title, summary, url, source, published_at) VALUES (?,?,?,?,?)",
+                (text[:100], text, url, f"telegram:{group_name}",
+                 datetime.now(timezone.utc).isoformat())
+            )
+            conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
     return None
 
 
@@ -185,8 +205,8 @@ async def cmd_listen(target: str):
         # 存入 SQLite
         save_message(chat_id, chat_name, sender_id, sender_name, text, ts)
 
-        # 預留 AI 分析
-        analyze_message(text)
+        # 即時分析（財經群組自動導入 intelligence）
+        analyze_message(text, chat_name, event.id)
 
         # 簡易 log
         short = text[:60].replace("\n", " ")

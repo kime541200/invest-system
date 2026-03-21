@@ -35,16 +35,24 @@ SEARCH_TOPICS = [
     '台股 台灣股市',
     '台積電 TSMC',
     '台海 兩岸',
-    # 全球
+    # 全球財經
     '全球經濟 global economy',
-    'AI artificial intelligence',
     '加密貨幣 crypto Bitcoin',
-    # 地緣
+    # 地緣政治
     '中東 Iran war',
     '俄烏 Russia Ukraine',
     # 商品
     'gold 黃金',
     'oil 原油',
+    # 科技趨勢
+    'AI artificial intelligence 人工智慧',
+    'Apple Google Meta 科技巨頭',
+    # 網路熱門 / 社會話題
+    'trending viral 爆紅 熱門',
+    'meme 迷因 網路梗',
+    '日本 韓國 流行文化 pop culture',
+    '健康 fitness 生活',
+    '新奇 科學 太空 space',
 ]
 
 NITTER_INSTANCES = [

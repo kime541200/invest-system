@@ -102,6 +102,37 @@ def api_mood():
                     'avg_score': avg_score, 'mood': dominant})
 
 
+@app.route("/api/tg-messages")
+def api_tg_messages():
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM tg_messages ORDER BY ts DESC LIMIT 100"
+    ).fetchall()
+    conn.close()
+    return jsonify(rows_to_dicts(rows))
+
+
+@app.route("/api/tg-stats")
+def api_tg_stats():
+    conn = get_conn()
+    groups = conn.execute("""
+        SELECT group_name, COUNT(*) as msg_count,
+               MAX(ts) as latest_ts
+        FROM tg_messages GROUP BY group_name ORDER BY msg_count DESC
+    """).fetchall()
+    total = conn.execute("SELECT COUNT(*) FROM tg_messages").fetchone()[0]
+    today = datetime.now().strftime("%Y-%m-%d")
+    today_count = conn.execute(
+        "SELECT COUNT(*) FROM tg_messages WHERE ts >= ?", (today,)
+    ).fetchone()[0]
+    conn.close()
+    return jsonify({
+        "total": total,
+        "today": today_count,
+        "groups": rows_to_dicts(groups),
+    })
+
+
 @app.route("/trading")
 def trading():
     return send_file(os.path.join(BASE_DIR, "trading.html"))
@@ -138,6 +169,7 @@ NAV = """<nav>
 <a href="/trading">看盤</a>
 <a href="/backtests">回測結果</a>
 <a href="/intelligence">市場情報</a>
+<a href="/messages">群組監聽</a>
 {symbols}
 </nav>"""
 
@@ -252,8 +284,20 @@ def index():
     else:
         mood_html = ""
 
+    # TG 監聽卡片
+    tg_total = conn.execute("SELECT COUNT(*) FROM tg_messages").fetchone()[0]
+    tg_groups = conn.execute("SELECT COUNT(DISTINCT group_name) FROM tg_messages").fetchone()[0]
+    tg_html = ""
+    if tg_total > 0:
+        tg_html = f"""<a href="/messages" style="text-decoration:none"><div class="card" style="display:flex;align-items:center;gap:16px;cursor:pointer">
+            <div style="font-size:2rem">📨</div>
+            <div style="color:#cbd5e1;font-size:13px">
+                TG 監聽：<b>{tg_total}</b> 則訊息 / <b>{tg_groups}</b> 個群組
+            </div>
+        </div></a>"""
+
     conn.close()
-    return page("儀表板", mood_html + bt_html + stat_html + trade_html)
+    return page("儀表板", mood_html + tg_html + bt_html + stat_html + trade_html)
 
 
 # ── 回測結果 ─────────────────────────────────────────
@@ -509,6 +553,82 @@ def intelligence():
     return page("市場情報", mood_card + news_html)
 
 
+# ── 群組監聽頁 ───────────────────────────────────────
+
+@app.route("/messages")
+def messages():
+    conn = get_conn()
+    total = conn.execute("SELECT COUNT(*) FROM tg_messages").fetchone()[0]
+    today = datetime.now().strftime("%Y-%m-%d")
+    today_count = conn.execute(
+        "SELECT COUNT(*) FROM tg_messages WHERE ts >= ?", (today,)
+    ).fetchone()[0]
+    groups = conn.execute(
+        "SELECT DISTINCT group_name FROM tg_messages ORDER BY group_name"
+    ).fetchall()
+    group_count = len(groups)
+    msgs = conn.execute(
+        "SELECT * FROM tg_messages ORDER BY ts DESC LIMIT 100"
+    ).fetchall()
+    conn.close()
+
+    # 統計卡片
+    stats_html = f"""<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+        <div class="card" style="flex:1;min-width:120px;text-align:center">
+            <div style="font-size:1.8rem;font-weight:bold;color:#38bdf8">{total}</div>
+            <div style="color:#94a3b8;font-size:12px">總訊息數</div>
+        </div>
+        <div class="card" style="flex:1;min-width:120px;text-align:center">
+            <div style="font-size:1.8rem;font-weight:bold;color:#a78bfa">{group_count}</div>
+            <div style="color:#94a3b8;font-size:12px">活躍群組</div>
+        </div>
+        <div class="card" style="flex:1;min-width:120px;text-align:center">
+            <div style="font-size:1.8rem;font-weight:bold;color:#4ade80">{today_count}</div>
+            <div style="color:#94a3b8;font-size:12px">今日訊息</div>
+        </div>
+    </div>"""
+
+    # 群組篩選
+    opts = '<option value="">全部群組</option>'
+    for g in groups:
+        name = (g['group_name'] or '').replace('"', '&quot;')
+        opts += f'<option value="{name}">{name}</option>'
+    filter_html = f"""<div style="margin-bottom:14px">
+        <select id="groupFilter" onchange="filterMsgs()" style="background:#1e293b;color:#e2e8f0;
+            border:1px solid #475569;border-radius:6px;padding:8px 12px;font-size:14px;width:100%;max-width:320px">
+            {opts}
+        </select>
+    </div>"""
+
+    # 訊息列表
+    rows_html = ""
+    for m in msgs:
+        ts = (m['ts'] or '')[:19]
+        gn = (m['group_name'] or '').replace('<', '&lt;')
+        sn = (m['sender_name'] or '').replace('<', '&lt;')
+        txt = (m['message_text'] or '').replace('<', '&lt;').replace('>', '&gt;')
+        rows_html += f"""<tr data-group="{(m['group_name'] or '').replace('"', '&quot;')}">
+            <td style="white-space:nowrap;color:#94a3b8">{ts}</td>
+            <td><span class="badge" style="background:#312e81;color:#a78bfa">{gn}</span></td>
+            <td style="color:#7dd3fc">{sn}</td>
+            <td style="white-space:normal;max-width:400px;word-break:break-all">{txt}</td></tr>"""
+
+    table_html = f"""<div class="card"><table id="msgTable">
+        <tr><th>時間</th><th>群組</th><th>發送者</th><th>內容</th></tr>
+        {rows_html}</table></div>"""
+
+    script = """<script>
+    function filterMsgs(){
+        var v=document.getElementById('groupFilter').value;
+        var rows=document.querySelectorAll('#msgTable tr[data-group]');
+        rows.forEach(function(r){r.style.display=(!v||r.getAttribute('data-group')===v)?'':'none';});
+    }
+    setTimeout(function(){location.reload();},30000);
+    </script>"""
+
+    return page("群組監聽", stats_html + filter_html + table_html + script)
+
+
 @app.route("/api/manifest")
 def api_manifest():
     """服務清單 — 供 SBS Dashboard 動態偵測"""
@@ -522,10 +642,12 @@ def api_manifest():
             {"path": "/trading", "name": "策略監控", "icon": "📈"},
             {"path": "/intelligence", "name": "市場情報", "icon": "📰"},
             {"path": "/backtests", "name": "回測結果", "icon": "🏆"},
+            {"path": "/messages", "name": "群組監聽", "icon": "📨"},
         ],
         "apis": [
             "/api/backtests", "/api/market/<symbol>", "/api/trades",
-            "/api/symbols", "/api/intelligence", "/api/mood", "/api/manifest",
+            "/api/symbols", "/api/intelligence", "/api/mood",
+            "/api/tg-messages", "/api/tg-stats", "/api/manifest",
         ],
         "status": "running",
     })

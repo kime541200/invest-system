@@ -318,8 +318,33 @@ def index():
             </div>
         </div></a>"""
 
+    # 法人動向卡片
+    chip_html = ""
+    try:
+        latest_date = conn.execute("SELECT MAX(date) FROM tw_institutional").fetchone()[0]
+        if latest_date:
+            inst_rows = conn.execute("""
+                SELECT symbol, foreign_net, trust_net, total_net
+                FROM tw_institutional WHERE date = ?
+                ORDER BY ABS(total_net) DESC LIMIT 5
+            """, (latest_date,)).fetchall()
+            if inst_rows:
+                items = ""
+                for r in inst_rows:
+                    net = r['total_net']
+                    cls = "pos" if net > 0 else "neg"
+                    items += f'<span style="margin-right:12px"><b>{r["symbol"]}</b> <span class="{cls}">{net:+,}</span></span>'
+                chip_html = f"""<a href="/chipdata" style="text-decoration:none"><div class="card" style="display:flex;align-items:center;gap:16px;cursor:pointer">
+                    <div style="font-size:2rem">🏦</div>
+                    <div style="color:#cbd5e1;font-size:13px">
+                        法人動向 ({latest_date})：{items}
+                    </div>
+                </div></a>"""
+    except Exception:
+        pass
+
     conn.close()
-    return page("儀表板", mood_html + tg_html + bt_html + stat_html + trade_html)
+    return page("儀表板", mood_html + chip_html + tg_html + bt_html + stat_html + trade_html)
 
 
 # ── 回測結果 ─────────────────────────────────────────

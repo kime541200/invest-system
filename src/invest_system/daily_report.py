@@ -16,7 +16,7 @@ import requests
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
-from config import DB_PATH, load_env
+from .config import DB_PATH, load_env
 
 load_env()
 

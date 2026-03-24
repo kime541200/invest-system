@@ -17,9 +17,7 @@ import requests
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DB_PATH, DATA_DIR
+from ..config import DB_PATH, DATA_DIR
 
 
 def get_conn():

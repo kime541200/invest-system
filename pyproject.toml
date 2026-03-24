@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "invest-system"
 version = "0.1.0"
@@ -20,3 +24,13 @@ dependencies = [
     "websockets==16.0",
     "yfinance==1.2.0",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+invest-main = "invest_system.main:run_from_cli"
+invest-backtest = "invest_system.backtest:run_from_cli"
+invest-webapp = "invest_system.webapp:run_from_cli"
+invest-fetcher = "invest_system.data.fetcher:run_from_cli"
+invest-intelligence = "invest_system.intelligence:run_from_cli"

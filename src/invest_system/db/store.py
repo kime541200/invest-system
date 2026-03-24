@@ -1,7 +1,7 @@
 """SQLite 交易紀錄儲存"""
 import sqlite3
 from datetime import datetime
-from config import DB_PATH
+from ..config import DB_PATH
 
 
 def get_conn():

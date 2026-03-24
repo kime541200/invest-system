@@ -10,7 +10,7 @@ from html import unescape
 
 import requests
 
-from config import DB_PATH, load_env
+from .config import DB_PATH, load_env
 
 # 確保環境變數已載入
 load_env()

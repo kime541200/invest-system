@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from data.fetcher import (
+from .data.fetcher import (
     batch_download_taifex, batch_download_twse_stock,
     batch_download_yfinance, save_to_db, fetch_twse_stock
 )

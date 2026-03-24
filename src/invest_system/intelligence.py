@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 
 import requests
 
-from config import DB_PATH
+from .config import DB_PATH
 
 # ── RSS 來源 ──────────────────────────────────────────────
 RSS_SOURCES = {

@@ -4,7 +4,7 @@ import json
 import os
 from datetime import datetime, timedelta
 from flask import Flask, jsonify, Response, send_file
-from config import DB_PATH, BASE_DIR
+from .config import DB_PATH, BASE_DIR
 
 app = Flask(__name__)
 
@@ -13,6 +13,8 @@ def get_conn():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+# ... (rest of the file remains similar but imports need to be relative)
 
 
 def rows_to_dicts(rows):
@@ -887,7 +889,11 @@ def health():
     })
 
 
-if __name__ == "__main__":
+def run_from_cli():
     print("投資系統 Web App 啟動中...")
     print("http://localhost:18900")
     app.run(host="0.0.0.0", port=18900, debug=False)
+
+
+if __name__ == "__main__":
+    run_from_cli()

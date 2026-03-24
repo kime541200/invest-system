@@ -28,6 +28,13 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-mock>=3.15.1",
+    "responses>=0.26.0",
+]
+
 [project.scripts]
 invest-main = "invest_system.main:run_from_cli"
 invest-backtest = "invest_system.backtest:run_from_cli"

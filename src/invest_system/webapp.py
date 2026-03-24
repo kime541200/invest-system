@@ -9,10 +9,9 @@ from .config import DB_PATH, BASE_DIR
 app = Flask(__name__)
 
 
-def get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+def get_conn(db_path=None):
+    from .db.store import get_conn as _get_conn
+    return _get_conn(db_path)
 
 # ... (rest of the file remains similar but imports need to be relative)
 
@@ -24,16 +23,16 @@ def rows_to_dicts(rows):
 # ── API ──────────────────────────────────────────────
 
 @app.route("/api/backtests")
-def api_backtests():
-    conn = get_conn()
+def api_backtests(db_path=None):
+    conn = get_conn(db_path)
     rows = conn.execute("SELECT * FROM backtest_results ORDER BY ts DESC").fetchall()
     conn.close()
     return jsonify(rows_to_dicts(rows))
 
 
 @app.route("/api/market/<symbol>")
-def api_market(symbol):
-    conn = get_conn()
+def api_market(symbol, db_path=None):
+    conn = get_conn(db_path)
     rows = conn.execute(
         "SELECT * FROM market_data WHERE symbol=? ORDER BY date DESC LIMIT 120",
         (symbol,)
@@ -43,16 +42,16 @@ def api_market(symbol):
 
 
 @app.route("/api/trades")
-def api_trades():
-    conn = get_conn()
+def api_trades(db_path=None):
+    conn = get_conn(db_path)
     rows = conn.execute("SELECT * FROM trades ORDER BY ts DESC LIMIT 100").fetchall()
     conn.close()
     return jsonify(rows_to_dicts(rows))
 
 
 @app.route("/api/symbols")
-def api_symbols():
-    conn = get_conn()
+def api_symbols(db_path=None):
+    conn = get_conn(db_path)
     rows = conn.execute("""
         SELECT symbol, COUNT(*) as count, MIN(date) as min_date, MAX(date) as max_date
         FROM market_data GROUP BY symbol ORDER BY symbol
@@ -179,8 +178,8 @@ NAV = """<nav>
 </nav>"""
 
 
-def make_nav(active=""):
-    conn = get_conn()
+def make_nav(active="", db_path=None):
+    conn = get_conn(db_path)
     symbols = conn.execute("""
         SELECT symbol, source, COUNT(*) as cnt FROM market_data
         GROUP BY symbol ORDER BY source, symbol
@@ -205,20 +204,20 @@ def make_nav(active=""):
     return NAV.format(symbol_options=options)
 
 
-def page(title, body):
+def page(title, body, db_path=None):
     return f"""<!DOCTYPE html>
 <html lang="zh-TW"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{title} — 投資系統</title>
 <style>{STYLE}</style></head>
-<body>{make_nav()}<h1>{title}</h1>{body}</body></html>"""
+<body>{make_nav(db_path=db_path)}<h1>{title}</h1>{body}</body></html>"""
 
 
 # ── 首頁 ─────────────────────────────────────────────
 
 @app.route("/")
-def index():
-    conn = get_conn()
+def index(db_path=None):
+    conn = get_conn(db_path)
 
     # 回測摘要
     bts = conn.execute("SELECT * FROM backtest_results ORDER BY ts DESC LIMIT 5").fetchall()
@@ -345,19 +344,19 @@ def index():
         pass
 
     conn.close()
-    return page("儀表板", mood_html + chip_html + tg_html + bt_html + stat_html + trade_html)
+    return page("儀表板", mood_html + chip_html + tg_html + bt_html + stat_html + trade_html, db_path=db_path)
 
 
 # ── 回測結果 ─────────────────────────────────────────
 
 @app.route("/backtests")
-def backtests():
-    conn = get_conn()
+def backtests(db_path=None):
+    conn = get_conn(db_path)
     rows = conn.execute("SELECT * FROM backtest_results ORDER BY ts DESC").fetchall()
     conn.close()
 
     if not rows:
-        return page("回測結果", '<div class="card empty">尚無回測紀錄</div>')
+        return page("回測結果", '<div class="card empty">尚無回測紀錄</div>', db_path=db_path)
 
     trs = ""
     for b in rows:
@@ -383,14 +382,14 @@ def backtests():
         <th>初始資金</th><th>最終價值</th><th>報酬率</th><th>最大回撤</th>
         <th>Sharpe</th><th>勝率</th><th>交易次數</th><th>時間</th></tr>
         {trs}</table></div>"""
-    return page("回測結果", body)
+    return page("回測結果", body, db_path=db_path)
 
 
 # ── 行情頁 ───────────────────────────────────────────
 
 @app.route("/market/<symbol>")
-def market(symbol):
-    conn = get_conn()
+def market(symbol, db_path=None):
+    conn = get_conn(db_path)
     rows = conn.execute(
         "SELECT * FROM market_data WHERE symbol=? ORDER BY date DESC LIMIT 120",
         (symbol,)
@@ -398,7 +397,7 @@ def market(symbol):
     conn.close()
 
     if not rows:
-        return page(f"{symbol} 行情", '<div class="card empty">無此標的資料</div>')
+        return page(f"{symbol} 行情", '<div class="card empty">無此標的資料</div>', db_path=db_path)
 
     # 表格（最近 20 筆）
     trs = ""

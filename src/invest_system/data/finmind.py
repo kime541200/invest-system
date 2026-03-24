@@ -15,23 +15,21 @@ import requests
 
 from ..config import DB_PATH, load_env
 
-load_env()
-...
-
 API_URL = 'https://api.finmindtrade.com/api/v4/data'
+
 HEADERS = {'User-Agent': 'Mozilla/5.0'}
 
 
-def get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+def get_conn(db_path=None):
+    from ..db.store import get_conn as _get_conn
+    return _get_conn(db_path)
 
 
-def init_finmind_db():
+def init_finmind_db(db_path=None, conn=None):
     """建立 FinMind 相關資料表"""
-    conn = get_conn()
-    conn.executescript("""
+    _conn = conn if conn else get_conn(db_path)
+    _conn.row_factory = sqlite3.Row
+    _conn.executescript("""
         CREATE TABLE IF NOT EXISTS tw_institutional (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT NOT NULL,
@@ -82,8 +80,9 @@ def init_finmind_db():
             UNIQUE(date, symbol)
         );
     """)
-    conn.commit()
-    conn.close()
+    if not conn:
+        _conn.commit()
+        _conn.close()
 
 
 def _fetch(dataset, params):
@@ -105,7 +104,7 @@ def _fetch(dataset, params):
 # 三大法人買賣超
 # ============================================
 
-def fetch_institutional(symbol, start_date, end_date=None):
+def fetch_institutional(symbol, start_date, end_date=None, db_path=None, conn=None):
     """取得個股三大法人買賣超"""
     if end_date is None:
         end_date = datetime.now().strftime('%Y-%m-%d')
@@ -148,12 +147,12 @@ def fetch_institutional(symbol, start_date, end_date=None):
             daily[date]['dealer_sell'] += sell
             daily[date]['dealer_net'] += buy - sell
 
-    conn = get_conn()
+    _conn = conn if conn else get_conn(db_path)
     count = 0
     for d in daily.values():
         d['total_net'] = d['foreign_net'] + d['trust_net'] + d['dealer_net']
         try:
-            conn.execute("""
+            _conn.execute("""
                 INSERT OR REPLACE INTO tw_institutional
                 (date, symbol, foreign_buy, foreign_sell, foreign_net,
                  trust_buy, trust_sell, trust_net,
@@ -167,8 +166,9 @@ def fetch_institutional(symbol, start_date, end_date=None):
             count += 1
         except Exception:
             continue
-    conn.commit()
-    conn.close()
+    if not conn:
+        _conn.commit()
+        _conn.close()
     print(f'  ✅ {count} 筆')
     return count
 
@@ -177,7 +177,7 @@ def fetch_institutional(symbol, start_date, end_date=None):
 # 融資融券
 # ============================================
 
-def fetch_margin(symbol, start_date, end_date=None):
+def fetch_margin(symbol, start_date, end_date=None, db_path=None, conn=None):
     """取得個股融資融券"""
     if end_date is None:
         end_date = datetime.now().strftime('%Y-%m-%d')
@@ -189,11 +189,11 @@ def fetch_margin(symbol, start_date, end_date=None):
         'end_date': end_date,
     })
 
-    conn = get_conn()
+    _conn = conn if conn else get_conn(db_path)
     count = 0
     for r in rows:
         try:
-            conn.execute("""
+            _conn.execute("""
                 INSERT OR REPLACE INTO tw_margin
                 (date, symbol, margin_buy, margin_sell, margin_balance,
                  short_buy, short_sell, short_balance)
@@ -211,8 +211,9 @@ def fetch_margin(symbol, start_date, end_date=None):
             count += 1
         except Exception:
             continue
-    conn.commit()
-    conn.close()
+    if not conn:
+        _conn.commit()
+        _conn.close()
     print(f'  ✅ {count} 筆')
     return count
 
@@ -221,7 +222,7 @@ def fetch_margin(symbol, start_date, end_date=None):
 # 月營收
 # ============================================
 
-def fetch_revenue(symbol, start_date, end_date=None):
+def fetch_revenue(symbol, start_date, end_date=None, db_path=None, conn=None):
     """取得個股月營收"""
     if end_date is None:
         end_date = datetime.now().strftime('%Y-%m-%d')
@@ -233,11 +234,11 @@ def fetch_revenue(symbol, start_date, end_date=None):
         'end_date': end_date,
     })
 
-    conn = get_conn()
+    _conn = conn if conn else get_conn(db_path)
     count = 0
     for r in rows:
         try:
-            conn.execute("""
+            _conn.execute("""
                 INSERT OR REPLACE INTO tw_revenue
                 (date, symbol, revenue, revenue_yoy, revenue_mom)
                 VALUES (?,?,?,?,?)
@@ -251,8 +252,9 @@ def fetch_revenue(symbol, start_date, end_date=None):
             count += 1
         except Exception:
             continue
-    conn.commit()
-    conn.close()
+    if not conn:
+        _conn.commit()
+        _conn.close()
     print(f'  ✅ {count} 筆')
     return count
 
@@ -261,7 +263,7 @@ def fetch_revenue(symbol, start_date, end_date=None):
 # 本益比 / 股價淨值比 / 殖利率
 # ============================================
 
-def fetch_per(symbol, start_date, end_date=None):
+def fetch_per(symbol, start_date, end_date=None, db_path=None, conn=None):
     """取得個股本益比/淨值比/殖利率"""
     if end_date is None:
         end_date = datetime.now().strftime('%Y-%m-%d')
@@ -273,11 +275,11 @@ def fetch_per(symbol, start_date, end_date=None):
         'end_date': end_date,
     })
 
-    conn = get_conn()
+    _conn = conn if conn else get_conn(db_path)
     count = 0
     for r in rows:
         try:
-            conn.execute("""
+            _conn.execute("""
                 INSERT OR REPLACE INTO tw_per
                 (date, symbol, per, pbr, dividend_yield)
                 VALUES (?,?,?,?,?)
@@ -291,8 +293,9 @@ def fetch_per(symbol, start_date, end_date=None):
             count += 1
         except Exception:
             continue
-    conn.commit()
-    conn.close()
+    if not conn:
+        _conn.commit()
+        _conn.close()
     print(f'  ✅ {count} 筆')
     return count
 

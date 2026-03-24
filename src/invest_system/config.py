@@ -14,15 +14,14 @@ DATA_DIR.mkdir(exist_ok=True)
 DB_PATH.parent.mkdir(exist_ok=True)
 
 # 載入環境變數
-# 1. 優先載入專案內的 .env (位於專案根目錄)
-load_dotenv(ROOT_DIR / '.env')
-
-# 2. 備選方案：載入 ai-hub 共用 .env (若未在專案中設定)
-def load_shared_env():
-    """載入 ai-hub 共用 .env (作為補充)"""
+def load_env():
+    """載入專案與共用環境變數"""
+    # 1. 優先載入專案內的 .env (位於專案根目錄)
+    load_dotenv(ROOT_DIR / '.env')
+    
+    # 2. 備選方案：載入 ai-hub 共用 .env (若未在專案中設定)
     shared_env = Path.home() / '.config' / 'ai-hub' / 'shared' / '.env'
     if shared_env.exists():
-        # 我們手動載入以避免覆盖專案內的 .env 設定
         for line in shared_env.read_text().splitlines():
             line = line.strip()
             if line and not line.startswith('#') and '=' in line:
@@ -31,7 +30,8 @@ def load_shared_env():
                 if k not in os.environ:
                     os.environ[k] = value.strip()
 
-load_shared_env()
+# 初始化載入
+load_env()
 
 # 預設設定
 DEFAULT_CASH = int(os.environ.get('DEFAULT_CASH', 1000000))       # 回測初始資金（台幣）

@@ -20,15 +20,38 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from ..config import DB_PATH, DATA_DIR
 
 
-def get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+def get_conn(db_path=None):
+    from ..db.store import get_conn as _get_conn
+    return _get_conn(db_path)
 
 
-# ============================================
-# 台灣證交所 (TWSE) — 個股日行情
-# ============================================
+def parse_twse_stock_row(symbol, row):
+    """解析證交所單一股票日行情列 (115/01/02 格式)"""
+    try:
+        parts = row[0].split('/')
+        y = int(parts[0]) + 1911
+        m = int(parts[1])
+        d = int(parts[2])
+        date = f'{y}-{m:02d}-{d:02d}'
+
+        volume = int(row[1].replace(',', ''))
+        open_p = float(row[3].replace(',', ''))
+        high_p = float(row[4].replace(',', ''))
+        low_p = float(row[5].replace(',', ''))
+        close_p = float(row[6].replace(',', ''))
+
+        return {
+            'symbol': symbol,
+            'date': date,
+            'open': open_p,
+            'high': high_p,
+            'low': low_p,
+            'close': close_p,
+            'volume': volume,
+        }
+    except (ValueError, IndexError):
+        return None
+
 
 def fetch_twse_daily(date_str):
     """
@@ -103,31 +126,9 @@ def fetch_twse_stock(symbol, start_date, end_date):
 
         if data.get('stat') == 'OK' and 'data' in data:
             for row in data['data']:
-                try:
-                    # 日期格式: 115/01/02 (民國年)
-                    parts = row[0].split('/')
-                    y = int(parts[0]) + 1911
-                    m = int(parts[1])
-                    d = int(parts[2])
-                    date = f'{y}-{m:02d}-{d:02d}'
-
-                    volume = int(row[1].replace(',', ''))
-                    open_p = float(row[3].replace(',', ''))
-                    high_p = float(row[4].replace(',', ''))
-                    low_p = float(row[5].replace(',', ''))
-                    close_p = float(row[6].replace(',', ''))
-
-                    results.append({
-                        'symbol': symbol,
-                        'date': date,
-                        'open': open_p,
-                        'high': high_p,
-                        'low': low_p,
-                        'close': close_p,
-                        'volume': volume,
-                    })
-                except (ValueError, IndexError):
-                    continue
+                record = parse_twse_stock_row(symbol, row)
+                if record:
+                    results.append(record)
 
         # 下個月
         current = current.replace(day=1) + timedelta(days=32)
@@ -396,27 +397,20 @@ def fetch_yfinance(symbol, period='1y'):
 # 儲存到 SQLite
 # ============================================
 
-def save_to_db(records, source='twse'):
+def save_to_db(records, source='twse', db_path=None):
     """批次存入 market_data 表"""
     if not records:
         return 0
 
-    conn = get_conn()
+    from ..db.store import save_market_data as _save
     count = 0
     for r in records:
         try:
-            conn.execute(
-                """INSERT OR IGNORE INTO market_data
-                   (symbol, date, open, high, low, close, volume, source)
-                   VALUES (?,?,?,?,?,?,?,?)""",
-                (r['symbol'], r['date'], r['open'], r['high'],
-                 r['low'], r['close'], r['volume'], source)
-            )
+            _save(r['symbol'], r['date'], r['open'], r['high'],
+                  r['low'], r['close'], r['volume'], source, db_path=db_path)
             count += 1
         except Exception:
             continue
-    conn.commit()
-    conn.close()
     return count
 
 
@@ -424,59 +418,59 @@ def save_to_db(records, source='twse'):
 # 批次下載入口
 # ============================================
 
-def batch_download_twse_stock(symbol, start='2024-01-01', end=None):
+def batch_download_twse_stock(symbol, start='2024-01-01', end=None, db_path=None):
     """批次下載台股個股歷史資料"""
     if end is None:
         end = datetime.now().strftime('%Y-%m-%d')
 
     print(f'📥 下載台股 {symbol} ({start} ~ {end})...')
     records = fetch_twse_stock(symbol, start, end)
-    saved = save_to_db(records, source='twse')
+    saved = save_to_db(records, source='twse', db_path=db_path)
     print(f'✅ {symbol}: 共 {len(records)} 筆，存入 {saved} 筆')
     return records
 
 
-def batch_download_taifex(product_id='TX', start='2024/01/01', end=None):
+def batch_download_taifex(product_id='TX', start='2024/01/01', end=None, db_path=None):
     """批次下載台灣期貨歷史資料"""
     if end is None:
         end = datetime.now().strftime('%Y/%m/%d')
 
     print(f'📥 下載期貨 {product_id} ({start} ~ {end})...')
     records = fetch_taifex_futures(product_id, start, end)
-    saved = save_to_db(records, source='taifex')
+    saved = save_to_db(records, source='taifex', db_path=db_path)
     print(f'✅ {product_id}: 共 {len(records)} 筆，存入 {saved} 筆')
     return records
 
 
-def batch_download_tpex_stock(symbol, start='2024-01-01', end=None):
+def batch_download_tpex_stock(symbol, start='2024-01-01', end=None, db_path=None):
     """批次下載上櫃個股歷史資料"""
     if end is None:
         end = datetime.now().strftime('%Y-%m-%d')
 
     print(f'📥 下載上櫃 {symbol} ({start} ~ {end})...')
     records = fetch_tpex_otc_stock(symbol, start, end)
-    saved = save_to_db(records, source='tpex_otc')
+    saved = save_to_db(records, source='tpex_otc', db_path=db_path)
     print(f'✅ {symbol}: 共 {len(records)} 筆，存入 {saved} 筆')
     return records
 
 
-def batch_download_tpex_emerging(symbol, start='2024-01-01', end=None):
+def batch_download_tpex_emerging(symbol, start='2024-01-01', end=None, db_path=None):
     """批次下載興櫃個股歷史資料"""
     if end is None:
         end = datetime.now().strftime('%Y-%m-%d')
 
     print(f'📥 下載興櫃 {symbol} ({start} ~ {end})...')
     records = fetch_tpex_emerging(symbol, start, end)
-    saved = save_to_db(records, source='tpex_emerging')
+    saved = save_to_db(records, source='tpex_emerging', db_path=db_path)
     print(f'✅ {symbol}: 共 {len(records)} 筆，存入 {saved} 筆')
     return records
 
 
-def batch_download_yfinance(symbol, period='1y'):
+def batch_download_yfinance(symbol, period='1y', db_path=None):
     """批次下載 yfinance 資料"""
     print(f'📥 下載 {symbol} (yfinance, {period})...')
     records = fetch_yfinance(symbol, period)
-    saved = save_to_db(records, source='yfinance')
+    saved = save_to_db(records, source='yfinance', db_path=db_path)
     print(f'✅ {symbol}: 共 {len(records)} 筆，存入 {saved} 筆')
     return records
 

@@ -4,15 +4,16 @@ from datetime import datetime
 from ..config import DB_PATH
 
 
-def get_conn():
-    conn = sqlite3.connect(DB_PATH)
+def get_conn(db_path=None):
+    path = db_path if db_path else DB_PATH
+    conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     return conn
 
 
-def init_db():
-    """建立資料表"""
-    conn = get_conn()
+def init_db_with_conn(conn):
+    """使用傳入的連線建立資料表"""
+    conn.row_factory = sqlite3.Row
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,34 +63,61 @@ def init_db():
 
         CREATE TABLE IF NOT EXISTS tw_institutional (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            symbol TEXT NOT NULL,
             date TEXT NOT NULL,
-            foreign_net INTEGER,
-            trust_net INTEGER,
-            dealer_net INTEGER,
-            total_net INTEGER,
-            UNIQUE(symbol, date)
+            symbol TEXT NOT NULL,
+            foreign_buy INTEGER DEFAULT 0,
+            foreign_sell INTEGER DEFAULT 0,
+            foreign_net INTEGER DEFAULT 0,
+            trust_buy INTEGER DEFAULT 0,
+            trust_sell INTEGER DEFAULT 0,
+            trust_net INTEGER DEFAULT 0,
+            dealer_buy INTEGER DEFAULT 0,
+            dealer_sell INTEGER DEFAULT 0,
+            dealer_net INTEGER DEFAULT 0,
+            total_net INTEGER DEFAULT 0,
+            UNIQUE(date, symbol)
+        );
+
+        CREATE TABLE IF NOT EXISTS news_intelligence (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            url TEXT UNIQUE,
+            summary TEXT,
+            source TEXT,
+            sentiment TEXT,
+            score INTEGER,
+            keywords TEXT,
+            reason TEXT,
+            published_at TEXT,
+            analyzed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     """)
     conn.commit()
+
+
+def init_db():
+    """建立預設資料庫的資料表"""
+    conn = get_conn()
+    init_db_with_conn(conn)
     conn.close()
 
 
-def save_trade(strategy, symbol, action, price, size, value, pnl=0):
-    conn = get_conn()
-    conn.execute(
+def save_trade(strategy, symbol, action, price, size, value, pnl=0, db_path=None, conn=None):
+    _conn = conn if conn else get_conn(db_path)
+    _conn.execute(
         "INSERT INTO trades (strategy, symbol, action, price, size, value, pnl) VALUES (?,?,?,?,?,?,?)",
         (strategy, symbol, action, price, size, value, pnl)
     )
-    conn.commit()
-    conn.close()
+    if not conn:
+        _conn.commit()
+        _conn.close()
 
 
 def save_backtest(strategy, symbol, start_date, end_date, initial_cash,
                   final_value, total_return, max_drawdown, sharpe_ratio,
-                  win_rate, total_trades):
-    conn = get_conn()
-    conn.execute(
+                  win_rate, total_trades, db_path=None, conn=None):
+    _conn = conn if conn else get_conn(db_path)
+    _conn.execute(
         """INSERT INTO backtest_results
            (strategy, symbol, start_date, end_date, initial_cash, final_value,
             total_return, max_drawdown, sharpe_ratio, win_rate, total_trades)
@@ -97,43 +125,47 @@ def save_backtest(strategy, symbol, start_date, end_date, initial_cash,
         (strategy, symbol, start_date, end_date, initial_cash, final_value,
          total_return, max_drawdown, sharpe_ratio, win_rate, total_trades)
     )
-    conn.commit()
-    conn.close()
+    if not conn:
+        _conn.commit()
+        _conn.close()
 
 
-def save_market_data(symbol, date, o, h, l, c, vol, source='yfinance'):
-    conn = get_conn()
-    conn.execute(
+def save_market_data(symbol, date, o, h, l, c, vol, source='yfinance', db_path=None, conn=None):
+    _conn = conn if conn else get_conn(db_path)
+    _conn.execute(
         """INSERT OR IGNORE INTO market_data
            (symbol, date, open, high, low, close, volume, source)
            VALUES (?,?,?,?,?,?,?,?)""",
         (symbol, date, o, h, l, c, vol, source)
     )
-    conn.commit()
-    conn.close()
+    if not conn:
+        _conn.commit()
+        _conn.close()
 
 
-def get_trades(strategy=None, limit=50):
-    conn = get_conn()
+def get_trades(strategy=None, limit=50, db_path=None, conn=None):
+    _conn = conn if conn else get_conn(db_path)
     if strategy:
-        rows = conn.execute(
+        rows = _conn.execute(
             "SELECT * FROM trades WHERE strategy=? ORDER BY ts DESC LIMIT ?",
             (strategy, limit)
         ).fetchall()
     else:
-        rows = conn.execute(
+        rows = _conn.execute(
             "SELECT * FROM trades ORDER BY ts DESC LIMIT ?", (limit,)
         ).fetchall()
-    conn.close()
+    if not conn:
+        _conn.close()
     return [dict(r) for r in rows]
 
 
-def get_backtest_results(limit=20):
-    conn = get_conn()
-    rows = conn.execute(
+def get_backtest_results(limit=20, db_path=None, conn=None):
+    _conn = conn if conn else get_conn(db_path)
+    rows = _conn.execute(
         "SELECT * FROM backtest_results ORDER BY ts DESC LIMIT ?", (limit,)
     ).fetchall()
-    conn.close()
+    if not conn:
+        _conn.close()
     return [dict(r) for r in rows]
 
 

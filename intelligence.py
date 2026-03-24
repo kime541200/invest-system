@@ -10,10 +10,7 @@ from datetime import datetime, timedelta
 
 import requests
 
-from config import DB_PATH, load_env
-
-# 確保環境變數已載入
-load_env()
+from config import DB_PATH
 
 # ── RSS 來源 ──────────────────────────────────────────────
 RSS_SOURCES = {

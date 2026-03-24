@@ -5,6 +5,7 @@
 ## 功能
 
 ### 資料收集
+
 - **台股** — 證交所 (TWSE) 上市個股歷史行情
 - **上櫃/興櫃** — 櫃買中心 (TPEx) 歷史行情
 - **台灣期貨** — 期交所 (TAIFEX) 全商品日行情（1998年起）
@@ -12,18 +13,21 @@
 - **批次下載** — 一鍵下載 28 年歷史資料
 
 ### 策略引擎
+
 - **可插拔策略框架** — 繼承 BaseStrategy 即可新增策略
 - **內建 5 個策略**：均線交叉、RSI、布林通道、MACD、突破策略
 - **Backtrader 回測** — 完整績效報告（報酬率、Sharpe、最大回撤、勝率）
 - **SQLite 儲存** — 所有交易紀錄和回測結果永久保存
 
 ### 市場情報
+
 - **RSS 新聞收集** — Google News、自由時報等即時財經新聞
 - **AI 情感分析** — Groq API 秒級分析（利多/利空/中性）
 - **市場情緒指標** — 即時計算 bullish/bearish 比例
 - **每分鐘更新** — Daemon 模式自動收集分析
 
 ### Web 儀表板
+
 - **策略監控** — 回測結果比較、買賣點標記
 - **K 線圖** — Canvas 繪製，支援縮放拖曳
 - **手機友善** — 深色主題 RWD 介面
@@ -32,26 +36,39 @@
 ## 快速開始
 
 ```bash
-# 建立虛擬環境
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+# 建立環境並安裝依賴 (使用 uv)
+uv sync
 
-# 下載資料
-.venv/bin/python data/fetcher.py --taifex TX MTX
-.venv/bin/python data/fetcher.py --twse 2330 2317
-.venv/bin/python data/fetcher.py --yf GC=F BTC-USD
+# 設定環境變數
+cp .env.example .env
+# 編輯 .env 並填入你的 GROQ_API_KEY
+```
 
-# 回測
-.venv/bin/python backtest.py ma_cross --symbol GC=F --source yfinance --period 2y
-.venv/bin/python backtest.py rsi --symbol 2330.TW --source yfinance
+### 環境變數說明
+
+本專案使用 `python-dotenv` 自動載入根目錄下的 `.env` 檔案。主要支援以下變數：
+
+- `GROQ_API_KEY`: (必填) 用於市場情報的 AI 情感分析。
+- `GEMINI_API_KEY`: (選填) 備用的 AI 分析來源。
+- `TELEGRAM_API_ID` / `HASH`: (選填) 用於 `tg_monitor.py` 監控群組。
+
+> 💡 **提示**：系統也會自動嘗試讀取 `~/.config/ai-hub/shared/.env` 作為全域備選設定。
+uv run python data/fetcher.py --twse 2330 2317
+uv run python data/fetcher.py --yf GC=F BTC-USD
+
+## 回測
+
+```bash
+uv run python backtest.py ma_cross --symbol GC=F --source yfinance --period 2y
+uv run python backtest.py rsi --symbol 2330.TW --source yfinance
 
 # 市場情報
-.venv/bin/python intelligence.py              # 單次收集+分析
-.venv/bin/python intelligence.py --daemon     # 每分鐘自動收集
-.venv/bin/python intelligence.py --mood       # 查看市場情緒
+uv run python intelligence.py              # 單次收集+分析
+uv run python intelligence.py --daemon     # 每分鐘自動收集
+uv run python intelligence.py --mood       # 查看市場情緒
 
 # Web 儀表板
-.venv/bin/python webapp.py                    # http://localhost:18900
+uv run python webapp.py                    # http://localhost:18900
 ```
 
 ## 策略回測範例
@@ -103,10 +120,9 @@ invest-system/
 
 ## 環境需求
 
-- Python 3.10+
-- 依賴：backtrader, yfinance, pandas, numpy, flask, requests, telethon
-
-## License
+- Python 3.11+ (由 `uv` 自動管理)
+- 依賴：backtrader, yfinance, pandas, numpy, flask, requests, telethon (詳見 `pyproject.toml`)
+- 管理工具：[uv](https://github.com/astral-sh/uv)
 
 MIT
 

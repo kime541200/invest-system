@@ -1,0 +1,21 @@
+[project]
+name = "invest-system"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "backtrader==1.9.78.123",
+    "beautifulsoup4==4.14.3",
+    "click==8.3.1",
+    "curl-cffi==0.13.0",
+    "flask==3.1.3",
+    "numpy==2.4.3",
+    "pandas==3.0.1",
+    "peewee==4.0.2",
+    "python-dotenv>=1.2.2",
+    "requests==2.32.5",
+    "telethon==1.42.0",
+    "websockets==16.0",
+    "yfinance==1.2.0",
+]

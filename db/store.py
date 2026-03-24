@@ -51,6 +51,25 @@ def init_db():
             source TEXT DEFAULT 'yfinance',
             UNIQUE(symbol, date)
         );
+
+        CREATE TABLE IF NOT EXISTS tg_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_name TEXT,
+            sender_name TEXT,
+            message_text TEXT,
+            ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS tw_institutional (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL,
+            date TEXT NOT NULL,
+            foreign_net INTEGER,
+            trust_net INTEGER,
+            dealer_net INTEGER,
+            total_net INTEGER,
+            UNIQUE(symbol, date)
+        );
     """)
     conn.commit()
     conn.close()

@@ -4,9 +4,8 @@ import json
 import os
 from datetime import datetime, timedelta
 from flask import Flask, jsonify, Response, send_file
+from config import DB_PATH, BASE_DIR
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "db/trades.db")
 app = Flask(__name__)
 
 

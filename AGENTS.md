@@ -27,6 +27,10 @@ uv run python data/fetcher.py --yf GC=F BTC-USD   # 透過 yfinance 下載國際
 # 3. 市場情報分析
 uv run python intelligence.py                     # 單次收集與分析
 uv run python intelligence.py --daemon            # 以守護行程 (daemon) 模式執行 (每分鐘更新)
+
+# 4. Telegram 群組監聽
+uv run python tg_monitor.py --login               # 首次互動式登入
+uv run python tg_monitor.py --listen all          # 開始監聽所有財經群組
 ```
 
 ## Testing
@@ -47,7 +51,7 @@ uv run python backtest.py ma_cross --symbol 2330.TW --source yfinance --period 2
 
 ## Project Structure
 
-```
+```text
 data/           # 資料抓取引擎 (TWSE, TPEx, TAIFEX, yfinance)
 db/             # 資料庫 Schema 初始化 (store.py) 與本地 SQLite 資料庫 (trades.db)
 strategies/     # 可插拔的回測策略與 __init__.py 的註冊表

@@ -34,3 +34,6 @@ assets/
 # IDE
 .vscode/
 .idea/
+
+# temp files
+tmp/

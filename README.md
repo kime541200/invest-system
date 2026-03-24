@@ -51,14 +51,20 @@ cp .env.example .env
 - `GROQ_API_KEY`: (必填) 用於市場情報的 AI 情感分析。
 - `GEMINI_API_KEY`: (選填) 備用的 AI 分析來源。
 - `TELEGRAM_API_ID` / `HASH`: (選填) 用於 `tg_monitor.py` 監控群組。
+- `DEFAULT_CASH`: (選填) 回測初始資金，預設為 `1000000`。
+- `DEFAULT_COMMISSION`: (選填) 手續費率，預設為 `0.001425` (0.1425%)。
+- `DEFAULT_TAX`: (選填) 交易稅率，預設為 `0.003` (0.3%)。
 
 > 💡 **提示**：系統也會自動嘗試讀取 `~/.config/ai-hub/shared/.env` 作為全域備選設定。
+
+### 常用指令
+
+```bash
+# 下載資料 (使用 uv run)
 uv run python data/fetcher.py --twse 2330 2317
 uv run python data/fetcher.py --yf GC=F BTC-USD
 
-## 回測
-
-```bash
+# 回測
 uv run python backtest.py ma_cross --symbol GC=F --source yfinance --period 2y
 uv run python backtest.py rsi --symbol 2330.TW --source yfinance
 
@@ -69,6 +75,11 @@ uv run python intelligence.py --mood       # 查看市場情緒
 
 # Web 儀表板
 uv run python webapp.py                    # http://localhost:18900
+
+# Telegram 監聽
+uv run python tg_monitor.py --login        # 首次登入驗證
+uv run python tg_monitor.py --groups       # 查看已加入群組
+uv run python tg_monitor.py --listen all   # 監聽所有群組
 ```
 
 ## 策略回測範例
@@ -124,8 +135,6 @@ invest-system/
 - 依賴：backtrader, yfinance, pandas, numpy, flask, requests, telethon (詳見 `pyproject.toml`)
 - 管理工具：[uv](https://github.com/astral-sh/uv)
 
-MIT
+## 授權條款
 
----
-
-Built with Symbiosis AI System
+本專案採用 [MIT License](LICENSE) 授權。

@@ -7,14 +7,15 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / 'data'
 DB_PATH = BASE_DIR / 'db' / 'trades.db'
+ROOT_DIR = BASE_DIR.parent.parent
 
 # 確保資料夾存在
 DATA_DIR.mkdir(exist_ok=True)
 DB_PATH.parent.mkdir(exist_ok=True)
 
 # 載入環境變數
-# 1. 優先載入專案內的 .env
-load_dotenv(BASE_DIR / '.env')
+# 1. 優先載入專案內的 .env (位於專案根目錄)
+load_dotenv(ROOT_DIR / '.env')
 
 # 2. 備選方案：載入 ai-hub 共用 .env (若未在專案中設定)
 def load_shared_env():

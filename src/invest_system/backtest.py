@@ -10,9 +10,9 @@ from datetime import datetime
 from pathlib import Path
 from contextlib import contextmanager
 
-from config import DB_PATH, DEFAULT_CASH, DEFAULT_COMMISSION, DEFAULT_TAX
-from strategies import STRATEGIES
-from db.store import save_backtest
+from .config import DB_PATH, DEFAULT_CASH, DEFAULT_COMMISSION, DEFAULT_TAX
+from .strategies import STRATEGIES
+from .db.store import save_backtest
 
 
 @contextmanager
@@ -213,11 +213,7 @@ def run_backtest(strategy_name, symbol, source='db', period='1y',
     }
 
 
-# ============================================
-# CLI 入口
-# ============================================
-
-if __name__ == '__main__':
+def run_from_cli():
     import argparse
     parser = argparse.ArgumentParser(description='投資策略回測引擎')
     parser.add_argument('strategy', nargs='?', default='ma_cross',
@@ -246,3 +242,11 @@ if __name__ == '__main__':
         end_date=args.end,
         cash=args.cash,
     )
+
+
+# ============================================
+# CLI 入口
+# ============================================
+
+if __name__ == '__main__':
+    run_from_cli()

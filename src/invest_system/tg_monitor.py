@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from telethon import TelegramClient, events
 from telethon.tl.types import Channel, Chat, User
 
-from config import load_env, DB_PATH, BASE_DIR
+from .config import load_env, DB_PATH, BASE_DIR
 
 # ── 環境變數 ──────────────────────────────────────────────
 load_env()

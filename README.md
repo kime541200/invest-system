@@ -95,27 +95,21 @@ uv run python tg_monitor.py --listen all   # 監聽所有群組
 
 ## 技術架構
 
+本專案採用標準的 **src-layout** 佈局，核心代碼位於 `src/invest_system/` 目錄下：
+
 ```
 invest-system/
-├── config.py              # 設定
-├── backtest.py            # 回測引擎 CLI
-├── intelligence.py        # 市場情報收集 + AI 分析
-├── webapp.py              # Flask Web App
-├── trading.html           # 策略監控看盤介面
-├── tg_monitor.py          # Telegram 群組監聽
-├── batch_download_all.py  # 全資料批次下載
-├── data/
-│   └── fetcher.py         # 資料下載器（TWSE/TPEx/TAIFEX/yfinance）
-├── db/
-│   └── store.py           # SQLite 儲存層
-├── strategies/
-│   ├── base.py            # 策略基類
-│   ├── ma_cross.py        # 均線交叉
-│   ├── rsi.py             # RSI
-│   ├── bollinger.py       # 布林通道
-│   ├── macd.py            # MACD
-│   └── breakout.py        # 突破策略
-└── utils/
+├── pyproject.toml       # 專案配置與依賴管理
+├── README.md            # 專案說明
+├── src/
+│   └── invest_system/   # 主程式套件
+│       ├── config.py    # 路徑與參數設定
+│       ├── backtest.py  # 回測引擎 CLI
+│       ├── webapp.py    # Flask Web App
+│       ├── data/        # 資料下載器 (TWSE/TPEx/TAIFEX/yfinance)
+│       ├── db/          # SQLite 儲存層 (store.py)
+│       ├── strategies/  # 可插拔的交易策略
+│       └── utils/       # 輔助工具
 ```
 
 ## 資料來源

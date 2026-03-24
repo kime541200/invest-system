@@ -9,15 +9,16 @@ from itertools import product
 from datetime import datetime
 from pathlib import Path
 
-from config import DB_PATH, DEFAULT_CASH
-from strategies import STRATEGIES
-from backtest import run_backtest
-from db.store import get_conn
+from .config import DB_PATH, DEFAULT_CASH
+from .strategies import STRATEGIES
+from .backtest import run_backtest
+from .db.store import get_conn
 
 # ============================================
 # 預設參數範圍
 # ============================================
-DEFAULT_PARAM_GRIDS = {
+...
+
     'ma_cross': {
         'fast_period': [3, 5, 8, 10, 13],
         'slow_period': [15, 20, 30, 40, 60],

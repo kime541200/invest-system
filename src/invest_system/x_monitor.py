@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 
 import requests
 
-from config import DB_PATH, load_env
+from .config import DB_PATH, load_env
 
 load_env()
 

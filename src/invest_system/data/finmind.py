@@ -13,11 +13,10 @@ from pathlib import Path
 
 import requests
 
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DB_PATH, load_env
+from ..config import DB_PATH, load_env
 
 load_env()
+...
 
 API_URL = 'https://api.finmindtrade.com/api/v4/data'
 HEADERS = {'User-Agent': 'Mozilla/5.0'}
